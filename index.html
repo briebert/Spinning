@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>NOW SPINNING</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Now Spinning">
+<meta name="theme-color" content="#0b0908">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0908; --panel:#141110; --panel2:#1b1715; --line:#2a2320;
+  --text:#f0eae4; --muted:#9c9088; --accent:#ff9a3c; --accent-dim:#ff9a3c22;
+  --good:#59d98c; --danger:#ff5d5d;
+  --safe-top:env(safe-area-inset-top,0px); --safe-bot:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}
+body{padding-top:var(--safe-top);user-select:none;-webkit-user-select:none}
+h1,h2,h3,.bebas{font-family:'Bebas Neue';font-weight:400;letter-spacing:.04em;margin:0}
+.mono{font-family:'DM Mono',monospace}
+button{font-family:inherit;border:none;cursor:pointer;color:inherit;background:none}
+input{font-family:inherit}
+.view{display:none;padding:14px 14px 110px}
+.view.active{display:block}
+.apphead{display:flex;align-items:baseline;justify-content:space-between;padding:10px 2px 10px}
+.apphead h1{font-size:30px}.apphead h1 span{color:var(--accent)}
+.apphead .sub{color:var(--muted);font-size:13px}
+
+/* setup */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;font-size:14px;line-height:1.5;color:var(--muted)}
+.card h3{font-size:22px;color:var(--text);margin-bottom:8px}
+.card b{color:var(--text);font-weight:500}
+input[type=text],input[type=password]{width:100%;height:52px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;color:var(--text);font-size:16px;padding:0 14px;margin-top:8px}
+input:focus{outline:none;border-color:var(--accent)}
+.bigbtn{display:block;width:100%;height:58px;border-radius:16px;background:var(--accent);color:#241300;font-family:'Bebas Neue';font-size:24px;letter-spacing:.08em;margin-top:12px}
+.bigbtn:active{filter:brightness(1.15)}
+.bigbtn.ghost{background:var(--panel);color:var(--text);border:1px solid var(--line)}
+.bigbtn:disabled{opacity:.4}
+.status{margin-top:10px;font-size:13px;color:var(--accent);min-height:18px}
+
+/* collection grid */
+.tools{display:flex;gap:8px;margin-bottom:12px}
+.tools input{margin:0;flex:1}
+.tools select{height:52px;background:var(--panel);border:1px solid var(--line);border-radius:12px;color:var(--text);font-size:14px;padding:0 10px;appearance:none}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{position:relative;border-radius:10px;overflow:hidden;background:var(--panel2);aspect-ratio:1;border:1px solid var(--line)}
+.tile img{width:100%;height:100%;object-fit:cover;display:block}
+.tile .cap{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 5px;background:linear-gradient(transparent,#000d);font-size:10px;line-height:1.25;color:#fff}
+.count{color:var(--muted);font-size:12px;margin:4px 2px 10px}
+
+/* now spinning */
+#np{min-height:70vh;display:flex;flex-direction:column;align-items:center;text-align:center}
+.deck{position:relative;width:min(78vw,340px);height:min(78vw,340px);margin:8px auto 18px}
+.vinyl{position:absolute;inset:0;border-radius:50%;background:
+  radial-gradient(circle at 50% 50%, #111 0 12%, transparent 12.5%),
+  repeating-radial-gradient(circle at 50% 50%, #1b1b1b 0 2px, #111 2px 4px);
+  box-shadow:0 10px 40px #000c;transform:translateX(14%);animation:spin 3.2s linear infinite}
+.vinyl::after{content:'';position:absolute;left:50%;top:50%;width:34%;height:34%;transform:translate(-50%,-50%);border-radius:50%;background:var(--accent);opacity:.92}
+.vinyl::before{content:'';position:absolute;left:50%;top:50%;width:4%;height:4%;transform:translate(-50%,-50%);border-radius:50%;background:var(--bg);z-index:2}
+@keyframes spin{to{transform:translateX(14%) rotate(360deg)}}
+.deck.paused .vinyl{animation-play-state:paused}
+.cover{position:absolute;inset:0;transform:translateX(-14%);border-radius:8px;overflow:hidden;box-shadow:0 12px 34px #000d;border:1px solid var(--line);background:var(--panel2)}
+.cover img{width:100%;height:100%;object-fit:cover;display:block}
+#np h2{font-size:34px;line-height:1.02;margin-top:4px}
+#np .artist{color:var(--accent);font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-top:6px}
+#np .facts{color:var(--muted);font-size:13px;margin-top:8px;line-height:1.6}
+.tracks{width:100%;max-width:480px;text-align:left;margin-top:16px}
+.trk{display:flex;justify-content:space-between;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);font-size:14px}
+.trk .pos{color:var(--accent);font-family:'DM Mono';min-width:34px}
+.trk .dur{color:var(--muted);font-family:'DM Mono'}
+.npbtns{display:flex;gap:10px;width:100%;max-width:480px;margin-top:18px}
+.npbtns .bigbtn{margin-top:0;flex:1}
+.empty{color:var(--muted);font-size:14px;text-align:center;padding:40px 20px;line-height:1.6}
+
+/* history */
+.hrow{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:8px}
+.hrow img{width:52px;height:52px;border-radius:8px;object-fit:cover;flex:none}
+.hrow .t{font-size:14.5px;font-weight:500}
+.hrow .a{font-size:12.5px;color:var(--muted)}
+.hrow .d{margin-left:auto;font-size:11px;color:var(--muted);font-family:'DM Mono';text-align:right;flex:none}
+
+/* nav */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-template-columns:repeat(4,1fr);background:var(--panel);border-top:1px solid var(--line);padding-bottom:var(--safe-bot)}
+nav button{height:60px;color:var(--muted);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center}
+nav button .ic{font-size:18px}
+nav button.on{color:var(--accent)}
+.spinbig{position:relative}
+.modal{position:fixed;inset:0;z-index:80;background:#050403ee;display:none;align-items:center;justify-content:center;flex-direction:column}
+.modal.show{display:flex}
+.rolodex{font-family:'Bebas Neue';font-size:30px;color:var(--muted);height:40px;overflow:hidden;text-align:center;width:90%}
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div class="view active" id="view-setup">
+  <div class="apphead"><h1>NOW <span>SPINNING</span></h1></div>
+  <div class="card">
+    <h3>Connect your collection</h3>
+    Enter your Discogs username. If your collection is public (the default), that's all it takes — nothing to sign in to.
+    <input type="text" id="username" placeholder="Discogs username" autocapitalize="none" autocorrect="off">
+    <div style="margin-top:12px">Personal access token — <b>optional</b>, only needed if your collection is set to private. It's stored only on this device.</div>
+    <input type="password" id="token" placeholder="Token (optional)">
+    <button class="bigbtn" id="loadbtn">LOAD COLLECTION</button>
+    <div class="status" id="loadstatus"></div>
+  </div>
+  <div class="card" id="synccard" style="display:none">
+    <h3>Collection loaded</h3>
+    <span id="syncinfo"></span>
+    <button class="bigbtn ghost" id="resync">RE-SYNC FROM DISCOGS</button>
+    <button class="bigbtn ghost" id="forget" style="border-color:var(--danger);color:var(--danger)">FORGET THIS DEVICE</button>
+  </div>
+</div>
+
+<!-- COLLECTION -->
+<div class="view" id="view-collection">
+  <div class="apphead"><h1>COLLECTION</h1><div class="sub" id="colcount"></div></div>
+  <div class="tools">
+    <input type="text" id="search" placeholder="Search artist or title…">
+    <select id="sortsel">
+      <option value="artist">A–Z Artist</option>
+      <option value="title">A–Z Title</option>
+      <option value="year">Year</option>
+      <option value="added">Recently added</option>
+    </select>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- NOW SPINNING -->
+<div class="view" id="view-np">
+  <div class="apphead"><h1 onclick="showView('setup')">NOW <span>SPINNING</span></h1><div class="sub" onclick="showView('setup')">setup</div></div>
+  <div id="np"><div class="empty">Nothing on the platter.<br>Hit SPIN to let the crate decide, or pick something from the collection.</div></div>
+</div>
+
+<!-- HISTORY -->
+<div class="view" id="view-history">
+  <div class="apphead"><h1>LISTENING LOG</h1><div class="sub" id="histcount"></div></div>
+  <div id="histlist"></div>
+</div>
+
+<!-- SPIN MODAL -->
+<div class="modal" id="spinmodal">
+  <div class="deck" style="width:230px;height:230px"><div class="vinyl" style="transform:none;animation:spin .6s linear infinite"></div></div>
+  <div class="rolodex" id="rolodex">…</div>
+</div>
+
+<nav>
+  <button data-v="np" class="on"><span class="ic">&#9679;</span>Spinning</button>
+  <button data-v="collection"><span class="ic">&#9638;</span>Collection</button>
+  <button id="navspin"><span class="ic" style="color:var(--accent)">&#10227;</span><span style="color:var(--accent)">Spin</span></button>
+  <button data-v="history"><span class="ic">&#9776;</span>Log</button>
+</nav>
+<div style="display:none" id="setupnav"></div>
+
+<script>
+/* ============ storage ============ */
+var K={user:"ns_user",token:"ns_token",col:"ns_collection",np:"ns_nowplaying",hist:"ns_history",syncat:"ns_syncat"};
+function load(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
+var collection=load(K.col,[]);
+var nowPlaying=load(K.np,null);
+var hist=load(K.hist,[]);
+function $(s){return document.querySelector(s)}
+function el(t,c,h){var e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e}
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+
+/* ============ nav ============ */
+document.querySelectorAll("nav button[data-v]").forEach(function(b){
+  b.addEventListener("click",function(){setNav(b.dataset.v);showView(b.dataset.v)});
+});
+function setNav(v){document.querySelectorAll("nav button[data-v]").forEach(function(x){x.classList.toggle("on",x.dataset.v===v)})}
+function showView(v){
+  document.querySelectorAll(".view").forEach(function(x){x.classList.remove("active")});
+  $("#view-"+v).classList.add("active");window.scrollTo(0,0);
+  if(v==="collection")renderGrid();
+  if(v==="history")renderHist();
+  if(v==="np")renderNP();
+}
+
+/* ============ Discogs fetch ============ */
+function dget(url){
+  var headers={};
+  var tok=load(K.token,"");
+  if(tok)headers["Authorization"]="Discogs token="+tok;
+  return fetch(url,{headers:headers}).then(function(r){
+    if(r.status===429)throw new Error("Rate limited by Discogs — wait a minute and try again.");
+    if(r.status===401||r.status===403)throw new Error("Discogs says no — collection may be private (add a token) or the token is wrong.");
+    if(r.status===404)throw new Error("Username not found on Discogs.");
+    if(!r.ok)throw new Error("Discogs error "+r.status);
+    return r.json();
+  });
+}
+function syncCollection(){
+  var user=load(K.user,"");
+  var out=[],page=1,totalPages=1;
+  $("#loadstatus").textContent="Contacting Discogs…";
+  function next(){
+    return dget("https://api.discogs.com/users/"+encodeURIComponent(user)+"/collection/folders/0/releases?per_page=100&sort=artist&page="+page)
+    .then(function(data){
+      totalPages=data.pagination.pages;
+      data.releases.forEach(function(r){
+        var b=r.basic_information;
+        out.push({
+          rid:b.id, title:b.title,
+          artist:(b.artists&&b.artists[0]?b.artists[0].name.replace(/\s\(\d+\)$/,""):"Unknown"),
+          year:b.year||null,
+          thumb:b.thumb||"", cover:b.cover_image||b.thumb||"",
+          fmt:(b.formats||[]).map(function(f){return f.name+((f.descriptions&&f.descriptions.length)?" ("+f.descriptions.join(", ")+")":"")}).join(" · "),
+          label:(b.labels&&b.labels[0]?b.labels[0].name:""),
+          added:r.date_added||""
+        });
+      });
+      $("#loadstatus").textContent="Loaded page "+page+" of "+totalPages+" ("+out.length+" records)…";
+      page++;
+      if(page<=totalPages){
+        return new Promise(function(res){setTimeout(res,1200)}).then(next); // stay under rate limit
+      }
+    });
+  }
+  return next().then(function(){
+    collection=out;save(K.col,collection);save(K.syncat,new Date().toISOString());
+    $("#loadstatus").textContent="Done — "+collection.length+" records synced.";
+    paintSyncCard();
+  });
+}
+
+/* ============ setup ============ */
+$("#username").value=load(K.user,"");
+$("#loadbtn").addEventListener("click",function(){
+  var u=$("#username").value.trim();
+  if(!u){$("#loadstatus").textContent="Enter your Discogs username first.";return}
+  save(K.user,u);
+  var t=$("#token").value.trim();
+  if(t)save(K.token,t);
+  $("#loadbtn").disabled=true;
+  syncCollection().then(function(){
+    $("#loadbtn").disabled=false;
+    setNav("collection");showView("collection");
+  }).catch(function(e){
+    $("#loadbtn").disabled=false;
+    $("#loadstatus").textContent=e.message;
+  });
+});
+function paintSyncCard(){
+  var at=load(K.syncat,null);
+  if(collection.length&&at){
+    $("#synccard").style.display="block";
+    $("#syncinfo").innerHTML="<b>"+collection.length+"</b> records · last synced "+new Date(at).toLocaleString();
+  }
+}
+$("#resync").addEventListener("click",function(){
+  syncCollection().catch(function(e){$("#loadstatus").textContent=e.message});
+});
+$("#forget").addEventListener("click",function(){
+  if(confirm("Remove collection data, token, and listening log from this device?")){localStorage.clear();location.reload()}
+});
+paintSyncCard();
+
+/* ============ collection grid ============ */
+$("#search").addEventListener("input",renderGrid);
+$("#sortsel").addEventListener("change",renderGrid);
+function filtered(){
+  var q=$("#search").value.trim().toLowerCase();
+  var list=collection.filter(function(r){return !q||(r.artist+" "+r.title).toLowerCase().indexOf(q)>-1});
+  var s=$("#sortsel").value;
+  list.sort(function(a,b){
+    if(s==="artist")return a.artist.localeCompare(b.artist)||a.title.localeCompare(b.title);
+    if(s==="title")return a.title.localeCompare(b.title);
+    if(s==="year")return (a.year||9999)-(b.year||9999);
+    return (b.added||"").localeCompare(a.added||"");
+  });
+  return list;
+}
+function renderGrid(){
+  var list=filtered();
+  $("#colcount").textContent=list.length+" of "+collection.length;
+  var g=$("#grid");g.innerHTML="";
+  if(!collection.length){g.appendChild(el("div","empty","No collection loaded yet — tap the word <b>setup</b> on the Spinning tab to connect your Discogs account."));return}
+  list.forEach(function(r){
+    var t=el("div","tile");
+    t.innerHTML=(r.thumb?'<img loading="lazy" src="'+esc(r.thumb)+'">':"")+'<div class="cap">'+esc(r.artist)+'<br>'+esc(r.title)+'</div>';
+    t.addEventListener("click",function(){putOn(r)});
+    g.appendChild(t);
+  });
+}
+
+/* ============ spin ============ */
+$("#navspin").addEventListener("click",function(){
+  if(!collection.length){setNav("np");showView("setup");return}
+  var m=$("#spinmodal");m.classList.add("show");
+  var i=0,ticks=0,max=18+Math.floor(Math.random()*8);
+  var iv=setInterval(function(){
+    var r=collection[Math.floor(Math.random()*collection.length)];
+    $("#rolodex").textContent=r.artist+" — "+r.title;
+    ticks++;
+    if(ticks>=max){
+      clearInterval(iv);
+      setTimeout(function(){m.classList.remove("show");putOn(r)},450);
+    }
+  },90);
+});
+
+/* ============ now spinning ============ */
+function putOn(r){
+  nowPlaying={rec:r,at:new Date().toISOString(),tracks:null};
+  save(K.np,nowPlaying);
+  hist.unshift({rid:r.rid,artist:r.artist,title:r.title,thumb:r.thumb,at:nowPlaying.at});
+  if(hist.length>300)hist.length=300;
+  save(K.hist,hist);
+  setNav("np");showView("np");
+  // pull tracklist lazily
+  dget("https://api.discogs.com/releases/"+r.rid).then(function(d){
+    nowPlaying.tracks=(d.tracklist||[]).filter(function(t){return t.type_!=="heading"}).map(function(t){return{pos:t.position,title:t.title,dur:t.duration}});
+    if(d.notes)nowPlaying.notes=true;
+    save(K.np,nowPlaying);renderNP();
+  }).catch(function(){ /* tracklist is a bonus; card still works */ });
+}
+function renderNP(){
+  var box=$("#np");
+  if(!nowPlaying){box.innerHTML='<div class="empty">Nothing on the platter.<br>Hit SPIN to let the crate decide, or pick something from the collection.</div>';return}
+  var r=nowPlaying.rec;
+  var tracks="";
+  if(nowPlaying.tracks&&nowPlaying.tracks.length){
+    tracks='<div class="tracks">'+nowPlaying.tracks.map(function(t){
+      return '<div class="trk"><span class="pos">'+esc(t.pos)+'</span><span style="flex:1">'+esc(t.title)+'</span><span class="dur">'+esc(t.dur)+'</span></div>';
+    }).join("")+'</div>';
+  }else if(nowPlaying.tracks===null){
+    tracks='<div class="facts">Loading tracklist…</div>';
+  }
+  box.innerHTML=
+    '<div class="deck"><div class="vinyl"></div><div class="cover">'+(r.cover?'<img src="'+esc(r.cover)+'">':"")+'</div></div>'+
+    '<h2>'+esc(r.title)+'</h2>'+
+    '<div class="artist">'+esc(r.artist)+'</div>'+
+    '<div class="facts">'+(r.year?r.year+" · ":"")+esc(r.label)+(r.fmt?'<br>'+esc(r.fmt):"")+'</div>'+
+    tracks+
+    '<div class="npbtns"><button class="bigbtn ghost" id="npdiscogs">VIEW ON DISCOGS</button><button class="bigbtn" id="npspin">SPIN AGAIN</button></div>';
+  $("#npspin").addEventListener("click",function(){$("#navspin").click()});
+  $("#npdiscogs").addEventListener("click",function(){window.open("https://www.discogs.com/release/"+r.rid,"_blank")});
+}
+
+/* ============ history ============ */
+function renderHist(){
+  $("#histcount").textContent=hist.length?hist.length+" plays logged":"";
+  var box=$("#histlist");box.innerHTML="";
+  if(!hist.length){box.appendChild(el("div","empty","No plays yet. Everything you put on the platter lands here."));return}
+  hist.forEach(function(h){
+    var d=new Date(h.at);
+    var row=el("div","hrow");
+    row.innerHTML=(h.thumb?'<img src="'+esc(h.thumb)+'">':"")+
+      '<div><div class="t">'+esc(h.title)+'</div><div class="a">'+esc(h.artist)+'</div></div>'+
+      '<div class="d">'+d.toLocaleDateString()+'<br>'+d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+'</div>';
+    box.appendChild(row);
+  });
+}
+
+/* ============ init ============ */
+if(collection.length){setNav("np");showView("np")}
+</script>
+</body>
+</html>
