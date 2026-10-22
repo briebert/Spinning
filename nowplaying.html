@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Now Playing">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="apple-touch-icon" href="np-icon.png">
+<title>Now Playing</title>
+<style>
+  :root { --led: #ff9e14; --dim: #9a8a70; --white: #f4f1ea; --red: #ff4738; --green: #3dff6a; --tint: #1a1206; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #000; overflow: hidden; }
+  body {
+    color: var(--white); font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-weight: 800;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  #screen { position: relative; height: 100%; display: flex; flex-direction: column;
+    background: radial-gradient(ellipse at 30% 40%, var(--tint), #050505 75%); transition: background 1.5s; padding: 2.5vh 3vw 1.5vh; }
+  #screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 5;
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,.45) 0 1px, transparent 1px 4px),
+      repeating-linear-gradient(0deg, rgba(0,0,0,.45) 0 1px, transparent 1px 4px); }
+  .glow { text-shadow: 0 0 .25em currentColor; }
+
+  /* top bar */
+  #top { display: flex; justify-content: space-between; align-items: center; gap: 2vw; font-size: min(2vw, 2.8vh); }
+  #state { color: var(--dim); }
+  #state.on { color: var(--green); }
+  #state.busy { color: var(--led); }
+  #meter { display: flex; gap: 3px; height: 1.1em; align-items: stretch; }
+  #meter i { width: .55em; background: #2a2418; border-radius: 1px; }
+  #meter i.lit { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  #meter i.lit.hot { background: var(--led); box-shadow: 0 0 6px var(--led); }
+  #meter i.lit.peak { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+  /* now playing */
+  #np { flex: 1; min-height: 0; display: flex; align-items: center; gap: 4vw; padding: 2vh 0; }
+  #art { flex: none; width: min(42vh, 38vw); aspect-ratio: 1; border-radius: 6px; background: #151008 center/cover no-repeat;
+    box-shadow: 0 0 40px rgba(255,158,20,.25); display: flex; align-items: center; justify-content: center;
+    font-size: min(10vh, 9vw); color: #3a2f1c; }
+  #info { min-width: 0; flex: 1; }
+  #title { font-size: min(6.5vw, 9vh); line-height: 1.08; color: var(--led); font-weight: 900;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  #artist { font-size: min(4vw, 5.5vh); margin-top: 2.5vh; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #album { font-size: min(2.2vw, 3.2vh); margin-top: 1.5vh; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .faded { opacity: .35; transition: opacity 1s; }
+
+  /* history + footer */
+  #history { font-size: min(1.6vw, 2.3vh); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border-top: 1px solid rgba(255,158,20,.3); padding-top: 1vh; }
+  #history b { color: var(--led); font-weight: 800; }
+  footer { display: flex; justify-content: space-between; align-items: center; margin-top: .8vh; font-size: min(1.5vw, 2.2vh); color: var(--dim); gap: 1em; }
+  button { font: inherit; cursor: pointer; position: relative; z-index: 6; }
+  #gearBtn { background: none; border: 1px solid rgba(154,138,112,.5); color: var(--dim); padding: .25em .8em; border-radius: 6px; }
+
+  /* start overlay & settings */
+  .overlay { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.82); display: none; align-items: center; justify-content: center; }
+  .overlay.open { display: flex; }
+  .panel { background: #17110a; border: 2px solid var(--led); border-radius: 12px; padding: 24px; width: min(92vw, 540px); font-size: 16px; }
+  .panel h2 { color: var(--led); font-size: 22px; margin-bottom: 10px; }
+  .panel p { color: var(--dim); font-weight: 600; line-height: 1.45; margin-bottom: 10px; font-size: 14px; }
+  .panel h3 { color: var(--dim); font-size: 13px; margin: 16px 0 8px; }
+  .panel input { width: 100%; font: inherit; font-size: 15px; padding: 10px; border-radius: 8px; border: 1px solid #5a4a30; background: #0c0905; color: var(--white); -webkit-user-select: text; user-select: text; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opts button { font-size: 14px; padding: 8px 12px; border-radius: 8px; background: #2a1f10; color: var(--white); border: 1px solid #5a4a30; }
+  .opts button.on { background: var(--led); color: #17110a; border-color: var(--led); }
+  .big-btn { margin-top: 18px; width: 100%; padding: 14px; border-radius: 10px; background: var(--led); color: #17110a; border: none; font-size: 18px; font-weight: 900; }
+  .ghost { margin-top: 10px; width: 100%; padding: 10px; border-radius: 10px; background: none; color: var(--dim); border: 1px solid #5a4a30; }
+  #err { color: var(--red); font-size: 14px; margin-top: 10px; min-height: 1em; }
+
+  @media (max-aspect-ratio: 1/1) {
+    #np { flex-direction: column; justify-content: center; text-align: center; }
+    #art { width: min(70vw, 45vh); }
+    #title { font-size: min(9vw, 6vh); }
+    #artist { font-size: min(6vw, 4vh); white-space: normal; }
+    #album { font-size: min(3.6vw, 2.4vh); white-space: normal; }
+  }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div id="top">
+    <span id="state">● NOT LISTENING</span>
+    <div id="meter"></div>
+  </div>
+  <div id="np">
+    <div id="art">♪</div>
+    <div id="info">
+      <div id="title" class="glow">NOW PLAYING</div>
+      <div id="artist" class="glow">Tap Start to begin listening</div>
+      <div id="album" class="glow"></div>
+    </div>
+  </div>
+  <div id="history"></div>
+  <footer>
+    <span id="usage"></span>
+    <button id="gearBtn">⚙ SETTINGS</button>
+    <span id="lastCheck"></span>
+  </footer>
+</div>
+
+<!-- Start / setup -->
+<div id="start" class="overlay open">
+  <div class="panel">
+    <h2>♪ Now Playing</h2>
+    <p>Listens to the room and shows what's playing: radio, vinyl, streaming, anything. It only checks when it hears sound, and re-checks when the song is likely to have changed.</p>
+    <h3>AUDD API TOKEN (saved only on this device)</h3>
+    <input id="tokenInput" type="password" placeholder="Paste your token from dashboard.audd.io" autocomplete="off" spellcheck="false">
+    <button class="big-btn" id="startBtn">START LISTENING</button>
+    <div id="err"></div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div id="settings" class="overlay">
+  <div class="panel">
+    <h2>Settings</h2>
+    <h3>CHECK AT MOST EVERY</h3><div class="opts" id="intervalOpts"></div>
+    <h3>MIC SENSITIVITY (raise if it won't notice quiet music)</h3><div class="opts" id="sensOpts"></div>
+    <h3>MONTHLY CHECK LIMIT (stops checking when reached)</h3><div class="opts" id="capOpts"></div>
+    <h3>API TOKEN</h3>
+    <input id="tokenEdit" type="password" autocomplete="off" spellcheck="false">
+    <button class="big-btn" id="saveSettings">DONE</button>
+    <button class="ghost" id="checkNow">CHECK NOW</button>
+  </div>
+</div>
+
+<script>
+// ---------------- Settings ----------------
+const INTERVALS = { "2 min": 120, "3 min": 180, "5 min": 300, "10 min": 600 };
+const SENS = { "Low": 0.03, "Medium": 0.015, "High": 0.007 };       // RMS threshold for "music is playing"
+const CAPS = { "300": 300, "1000": 1000, "2000": 2000, "No limit": 1e9 };
+const DEF = { token: "", interval: "3 min", sens: "Medium", cap: "1000" };
+let cfg = { ...DEF };
+try { cfg = { ...DEF, ...JSON.parse(localStorage.getItem("np_cfg") || "{}") }; } catch (e) {}
+const saveCfg = () => { try { localStorage.setItem("np_cfg", JSON.stringify(cfg)); } catch (e) {} };
+
+// Monthly usage counter
+const monthKey = () => { const d = new Date(); return "np_use_" + d.getFullYear() + "_" + (d.getMonth() + 1); };
+const getUse = () => { try { return parseInt(localStorage.getItem(monthKey()) || "0"); } catch (e) { return 0; } };
+const addUse = () => { try { localStorage.setItem(monthKey(), String(getUse() + 1)); } catch (e) {} showUsage(); };
+function showUsage() {
+  const cap = CAPS[cfg.cap];
+  $("usage").textContent = getUse() + (cap < 1e9 ? " / " + cap : "") + " CHECKS THIS MONTH";
+}
+
+// ---------------- Helpers ----------------
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmtTime = d => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).toUpperCase();
+function setState(text, cls) { const s = $("state"); s.textContent = text; s.className = cls || ""; }
+function parseTimecode(tc) { // "01:23" or "1:02:03" -> ms
+  if (!tc) return null;
+  const p = String(tc).split(":").map(Number);
+  if (p.some(isNaN)) return null;
+  return p.reduce((a, b) => a * 60 + b, 0) * 1000;
+}
+
+// ---------------- Audio ----------------
+let stream, ctx, analyser, buf, recMime = "";
+const METER_BARS = 16;
+$("meter").innerHTML = "<i></i>".repeat(METER_BARS);
+const bars = [...$("meter").children];
+
+async function startAudio() {
+  stream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+  });
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  await ctx.resume();
+  const src = ctx.createMediaStreamSource(stream);
+  analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+  buf = new Float32Array(analyser.fftSize);
+  src.connect(analyser);
+  for (const t of ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"]) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) { recMime = t; break; }
+  }
+}
+
+function rms() {
+  analyser.getFloatTimeDomainData(buf);
+  let s = 0;
+  for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+  return Math.sqrt(s / buf.length);
+}
+
+function drawMeter(level) {
+  const n = Math.min(METER_BARS, Math.round(Math.sqrt(level / 0.25) * METER_BARS));
+  bars.forEach((b, i) => {
+    b.className = i < n ? ("lit" + (i >= METER_BARS * 0.85 ? " peak" : i >= METER_BARS * 0.6 ? " hot" : "")) : "";
+  });
+}
+
+function recordClip(ms) {
+  return new Promise((resolve, reject) => {
+    const rec = recMime ? new MediaRecorder(stream, { mimeType: recMime }) : new MediaRecorder(stream);
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = () => resolve(new Blob(chunks, { type: rec.mimeType || recMime || "audio/mp4" }));
+    rec.onerror = e => reject(e.error || e);
+    rec.start();
+    setTimeout(() => { if (rec.state !== "inactive") rec.stop(); }, ms);
+  });
+}
+
+// ---------------- Recognition ----------------
+let current = null;          // current song info
+let lastCheck = 0;           // time of last check (ms)
+let nextDue = 0;             // when the next regular check is due
+let checking = false;
+let history = [];
+try { history = JSON.parse(localStorage.getItem("np_hist") || "[]"); } catch (e) {}
+
+async function identify() {
+  if (checking) return;
+  if (getUse() >= CAPS[cfg.cap]) { setState("● MONTHLY LIMIT REACHED", ""); return; }
+  checking = true;
+  lastCheck = Date.now();
+  setState("● LISTENING CLOSELY…", "busy");
+  try {
+    const clip = await recordClip(9000);
+    setState("● IDENTIFYING…", "busy");
+    const ext = clip.type.includes("webm") ? "webm" : clip.type.includes("ogg") ? "ogg" : "m4a";
+    const fd = new FormData();
+    fd.append("api_token", cfg.token);
+    fd.append("return", "apple_music,spotify");
+    fd.append("file", clip, "clip." + ext);
+    addUse();
+    const r = await fetch("https://api.audd.io/", { method: "POST", body: fd });
+    const j = await r.json();
+    if (j.status === "error") throw new Error((j.error && j.error.error_message) || "AudD error");
+    const interval = INTERVALS[cfg.interval] * 1000;
+    if (j.result) {
+      showSong(j.result);
+      // If we know how far into the song we are, check again right after it should end
+      const am = j.result.apple_music || {};
+      const dur = am.durationInMillis || (j.result.spotify && j.result.spotify.duration_ms);
+      const pos = parseTimecode(j.result.timecode);
+      let wait = interval;
+      if (dur && pos != null && dur > pos) wait = Math.min(interval, Math.max(45000, dur - pos + 10000));
+      nextDue = Date.now() + wait;
+    } else {
+      setState("● COULDN'T IDENTIFY — WILL RETRY", "on");
+      nextDue = Date.now() + 75000;
+    }
+    $("lastCheck").textContent = "LAST CHECK " + fmtTime(new Date());
+  } catch (e) {
+    setState("● ERROR: " + String(e.message || e).toUpperCase().slice(0, 60), "");
+    nextDue = Date.now() + 90000;
+  } finally {
+    checking = false;
+  }
+}
+
+function showSong(s) {
+  const am = s.apple_music || {}, sp = s.spotify || {};
+  const key = (s.artist + "|" + s.title).toLowerCase();
+  const isNew = !current || current.key !== key;
+  current = { key, title: s.title, artist: s.artist };
+  $("title").textContent = s.title || "Unknown";
+  $("artist").textContent = s.artist || "";
+  const year = (s.release_date || "").slice(0, 4);
+  $("album").textContent = [s.album, year].filter(Boolean).join(" · ");
+  let art = "";
+  if (am.artwork && am.artwork.url) art = am.artwork.url.replace("{w}", "800").replace("{h}", "800");
+  else if (sp.album && sp.album.images && sp.album.images[0]) art = sp.album.images[0].url;
+  $("art").style.backgroundImage = art ? `url("${art}")` : "";
+  $("art").textContent = art ? "" : "♪";
+  // Tint the screen with the album's own colors when Apple provides them
+  const bg = am.artwork && am.artwork.bgColor;
+  document.documentElement.style.setProperty("--tint", bg ? "#" + bg : "#1a1206");
+  const tc = am.artwork && (am.artwork.textColor1 || am.artwork.textColor2);
+  $("title").style.color = tc && tc.toLowerCase() !== "ffffff" ? "#" + tc : "";
+  ["title", "artist", "album", "art"].forEach(id => $(id).classList.remove("faded"));
+  setState("● LISTENING", "on");
+  if (isNew) {
+    history.unshift({ t: s.title, a: s.artist, at: Date.now() });
+    history = history.slice(0, 8);
+    try { localStorage.setItem("np_hist", JSON.stringify(history)); } catch (e) {}
+    drawHistory();
+  }
+}
+
+function drawHistory() {
+  const items = history.slice(1, 6).map(h => `<b>${esc(h.t)}</b> — ${esc(h.a)}`);
+  $("history").innerHTML = items.length ? "EARLIER: " + items.join("  ·  ") : "";
+}
+const esc = s => String(s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------------- Listening loop ----------------
+let soundSince = null, quietSince = null, gapSeen = false;
+const MIN_GAP_BETWEEN_CHECKS = 45000;
+
+function tick() {
+  if (!analyser) return;
+  const level = rms();
+  drawMeter(level);
+  const now = Date.now();
+  const loud = level > SENS[cfg.sens];
+
+  if (loud) {
+    if (!soundSince) soundSince = now;
+    quietSince = null;
+  } else {
+    if (!quietSince) quietSince = now;
+    const quietFor = now - quietSince;
+    if (quietFor > 2500) { soundSince = null; if (current) gapSeen = true; }   // a pause between tracks
+    if (quietFor > 30000 && current) {                                        // music stopped
+      current = null;
+      ["title", "artist", "album", "art"].forEach(id => $(id).classList.add("faded"));
+      setState("● QUIET — WAITING FOR MUSIC", "on");
+    }
+  }
+
+  if (checking || !loud || !soundSince || now - soundSince < 3000) return;
+  const sinceLast = now - lastCheck;
+  if (sinceLast < MIN_GAP_BETWEEN_CHECKS) return;
+
+  if (!current) identify();                        // music started
+  else if (gapSeen) { gapSeen = false; identify(); } // new track after a pause
+  else if (now >= nextDue) identify();              // regular re-check
+}
+
+// ---------------- Keep screen on ----------------
+let wake = null;
+async function keepAwake() {
+  try {
+    if ("wakeLock" in navigator && !wake) {
+      wake = await navigator.wakeLock.request("screen");
+      wake.addEventListener("release", () => { wake = null; });
+    }
+  } catch (e) {}
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && analyser) { keepAwake(); if (ctx.state !== "running") ctx.resume(); }
+});
+
+// ---------------- UI wiring ----------------
+$("tokenInput").value = cfg.token;
+$("startBtn").onclick = async () => {
+  const tok = $("tokenInput").value.trim();
+  if (!tok) { $("err").textContent = "Paste your AudD API token first."; return; }
+  cfg.token = tok; saveCfg();
+  try {
+    await startAudio();
+  } catch (e) {
+    $("err").textContent = "Microphone blocked. In Safari: aA → Website Settings → Microphone → Allow, then reload.";
+    return;
+  }
+  $("start").classList.remove("open");
+  $("title").textContent = "LISTENING…";
+  $("artist").textContent = "Play some music";
+  $("album").textContent = "";
+  setState("● LISTENING", "on");
+  keepAwake();
+  setInterval(tick, 200);
+};
+
+function buildOpts(el, map, key) {
+  $(el).innerHTML = "";
+  for (const k of Object.keys(map)) {
+    const b = document.createElement("button");
+    b.textContent = k;
+    if (cfg[key] === k) b.className = "on";
+    b.onclick = () => { cfg[key] = k; saveCfg(); buildOpts(el, map, key); showUsage(); };
+    $(el).appendChild(b);
+  }
+}
+$("gearBtn").onclick = () => {
+  buildOpts("intervalOpts", INTERVALS, "interval");
+  buildOpts("sensOpts", SENS, "sens");
+  buildOpts("capOpts", CAPS, "cap");
+  $("tokenEdit").value = cfg.token;
+  $("settings").classList.add("open");
+};
+$("saveSettings").onclick = () => {
+  const t = $("tokenEdit").value.trim();
+  if (t) { cfg.token = t; saveCfg(); }
+  $("settings").classList.remove("open");
+};
+$("checkNow").onclick = () => { $("settings").classList.remove("open"); if (analyser) identify(); };
+
+showUsage();
+drawHistory();
+</script>
+</body>
+</html>
