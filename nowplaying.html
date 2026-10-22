@@ -49,7 +49,7 @@
     display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   #artist { font-size: min(3.6vw, 5vh); margin-top: 2vh; color: rgba(255,255,255,.85); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #album { font-size: min(2.2vw, 3.1vh); margin-top: 1.2vh; color: var(--dim); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .faded { opacity: .35; transition: opacity 1s; }
+  .faded { opacity: .6; transition: opacity 1s; }
 
   /* history + footer */
   #history { font-size: min(1.6vw, 2.3vh); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -159,8 +159,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const fmtTime = d => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).toUpperCase();
 function setState(text, cls) { const s = $("state"); s.textContent = text; s.className = cls || ""; }
 // Big on-screen message, used whenever no song is showing (or for errors)
-function showMessage(title, sub, force) {
-  if (current && !force) return;
+// Once a song has been shown, it stays on screen until a NEW song replaces it.
+function showMessage(title, sub) {
+  if (onScreen) return;
   $("title").textContent = title;
   $("artist").textContent = sub || "";
   $("album").textContent = "";
@@ -251,6 +252,7 @@ function recordClip(ms) {
 
 // ---------------- Recognition ----------------
 let current = null;          // current song info
+let onScreen = false;        // true once any song has been displayed
 let lastCheck = 0;           // time of last check (ms)
 let nextDue = 0;             // when the next regular check is due
 let checking = false;
@@ -299,8 +301,8 @@ async function identify() {
     $("lastCheck").textContent = "LAST CHECK " + fmtTime(new Date());
   } catch (e) {
     const msg = String(e.message || e);
-    setState("● ERROR", "");
-    showMessage("Something went wrong", msg.slice(0, 160), true);
+    setState("● ERROR: " + msg.toUpperCase().slice(0, 70), "");
+    showMessage("Something went wrong", msg.slice(0, 160));
     current = null;
     nextDue = Date.now() + 90000;
   } finally {
@@ -313,6 +315,7 @@ function showSong(s) {
   const key = (s.artist + "|" + s.title).toLowerCase();
   const isNew = !current || current.key !== key;
   current = { key, title: s.title, artist: s.artist };
+  onScreen = true;
   $("title").textContent = s.title || "Unknown";
   $("artist").textContent = s.artist || "";
   const year = (s.release_date || "").slice(0, 4);
